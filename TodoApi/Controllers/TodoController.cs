@@ -15,49 +15,52 @@ namespace TodoApi.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var todos = _todoService.GetAllTodos();
-            return Ok(todos);
+            if (page < 1 || pageSize < 1 || pageSize > 100)
+                return BadRequest("page must be ?=1; page size must be between 1 to 100.");
+
+            var result = await _todoService.GetAllTodosAsync(page, pageSize);
+            return Ok(result);
         }
 
         [HttpGet("{id:int}")]
-        public IActionResult GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var todo = _todoService.GetTodoById(id);
+            var todo = await _todoService.GetTodoByIdAsync(id);
             return todo is null ? NotFound() : Ok(todo);
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody] CreateTodoRequest requset)
+        public async Task<IActionResult> Create([FromBody] CreateTodoRequest requset)
         {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-                var todo = _todoService.CreateTodo(requset);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var todo = await _todoService.CreateTodoAsync(requset);
             return CreatedAtAction(nameof(GetById), new { id = todo.Id }, todo);
         }
 
-       
+
 
         [HttpPut("{id:int}")]
-        public IActionResult Update(int id,[FromBody] UpdateTodoRequest request)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateTodoRequest request)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            var updated = _todoService.UpdateTodo(id, request);
+            var updated = await _todoService.UpdateTodoAsync(id, request);
             return updated is null ? NotFound() : Ok(updated);
 
         }
 
         [HttpDelete("{id:int}")]
-        public IActionResult DeleteTodo(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var deleted = _todoService.DeleteTodo(id);
+            var deleted = await _todoService.DeleteTodoAsync(id);
             return deleted ? NoContent() : NotFound();
         }
-    }
 
+    }
 
 }

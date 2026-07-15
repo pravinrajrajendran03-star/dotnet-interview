@@ -32,27 +32,28 @@ namespace TodoApi.Services
 
         }
 
-        public Todo CreateTodo(CreateTodoRequest request)
+        public async  Task<Todo> CreateTodoAsync(CreateTodoRequest request)
         {
             using var connection = new SqliteConnection(_connectionString);
-            connection.Open();
+            await connection.OpenAsync();
 
             var command = connection.CreateCommand();
-            command.CommandText = $@"
+            command.CommandText = 
+                @"
                 INSERT INTO Todos (Title, Description, IsCompleted, CreatedAt)
                 VALUES ($title,$description,$isCompleted,$createdAt);
                 SELECT last_insert_rowid();
             ";
             command.Parameters.AddWithValue("$title", request.Title);
-            command.Parameters.AddWithValue("$description", request.Description);
+            command.Parameters.AddWithValue("$description", request.Description ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("$isCompleted", request.IsCompleted ? 1: 0);
             var createdAt = DateTime.UtcNow;
             command.Parameters.AddWithValue("$createdAt", createdAt.ToString("o"));
 
-            var id = Convert.ToInt32(command.ExecuteScalar());
+            var id = (long)(await command.ExecuteScalarAsync())!;
             return new Todo
             {
-                Id = id,
+                Id = (int)id,
                 Title = request.Title,
                 Description = request.Description,
                 IsCompleted = request.IsCompleted,
@@ -60,68 +61,85 @@ namespace TodoApi.Services
             };
         }
 
-        public List<Todo> GetAllTodos()
+        public async Task<PagedResult<Todo>> GetAllTodosAsync(int page, int pageSize)
         {
             var todos = new List<Todo>();
             using var connection = new SqliteConnection(_connectionString);
-            connection.Open();
+            await connection.OpenAsync();
 
-            var command = connection.CreateCommand();
-            command.CommandText = "SELECT * FROM Todos";
+            var countCmd = connection.CreateCommand();
+            countCmd.CommandText = "SELECT COUNT(*) FROM Todos";
+            var totalCount = (int)(long)(await countCmd.ExecuteScalarAsync())!;
+            var dataCmd = connection.CreateCommand();
+            dataCmd.CommandText =
+                @"
+                   SELECT * from Todos
+                   ORDER BY Id
+                   LIMIT $pageSize OFFSET $offset
+                ";
+            dataCmd.Parameters.AddWithValue("$pageSize", pageSize);
+            dataCmd.Parameters.AddWithValue("$offset", (page-1) * pageSize);
 
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
+            var items = new List<Todo>();
+            using var reader = await dataCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                todos.Add(MapRow(reader));
+                items.Add(MapRow(reader));
             }
-
-            return todos;
+            return new PagedResult<Todo>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
-        public Todo? GetTodoById(int id)
+        public async Task<Todo?> GetTodoByIdAsync(int id)
         {
             using var connection = new SqliteConnection(_connectionString);
-            connection.Open();
+            await connection.OpenAsync();
 
             var command = connection.CreateCommand();
             command.CommandText = $"SELECT * FROM Todos WHERE Id = $id";
             command.Parameters.AddWithValue("$id", id);
 
             using var reader = command.ExecuteReader();
-            return reader.Read() ? MapRow(reader) : null;
+            return await  reader.ReadAsync() ? MapRow(reader) : null;
         }
 
-        public Todo? UpdateTodo(int id, UpdateTodoRequest todo)
+        public async Task<Todo?> UpdateTodoAsync(int id, UpdateTodoRequest todo)
         {
             using var connection = new SqliteConnection(_connectionString);
-            connection.Open();
+            await connection.OpenAsync();
 
             var command = connection.CreateCommand();
-            command.CommandText = $@"
+            command.CommandText = 
+                @"
                 UPDATE Todos
                 SET Title = $title, Description = $description, IsCompleted = $isCompleted
                 WHERE Id = $id;
             ";
             command.Parameters.AddWithValue("$title", todo.Title);
-            command.Parameters.AddWithValue("$description", todo.Description);
+            command.Parameters.AddWithValue("$description", todo.Description ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("$isCompleted", todo.IsCompleted ? 1 : 0);
             command.Parameters.AddWithValue("$id", id);
 
-            var rowsAffected = command.ExecuteNonQuery();
+            var rowsAffected = await command.ExecuteNonQueryAsync();
 
-            return rowsAffected == 0 ? null : GetTodoById(id);
+            return rowsAffected == 0 ? null :await  GetTodoByIdAsync(id);
 
         }
 
-        public bool DeleteTodo(int id)
+        public async Task<bool> DeleteTodoAsync(int id)
         {
             using var connection = new SqliteConnection(_connectionString);
-            connection.Open();
+            await connection.OpenAsync();
 
             var command = connection.CreateCommand();
             command.CommandText = $"DELETE FROM Todos WHERE Id = $id";
             command.Parameters.AddWithValue("$id", id);
-            return command.ExecuteNonQuery() > 0;
+            return await command.ExecuteNonQueryAsync() > 0;
         }
 
         private static Todo MapRow(SqliteDataReader reader)

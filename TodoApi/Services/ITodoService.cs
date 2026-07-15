@@ -4,10 +4,10 @@ namespace TodoApi.Services
 {
     public interface ITodoService
     {
-        Todo CreateTodo(CreateTodoRequest request);
-        List<Todo> GetAllTodos();
-        Todo? GetTodoById(int id);
-        Todo? UpdateTodo(int id, UpdateTodoRequest request);
-        bool DeleteTodo(int id);
+        Task<Todo> CreateTodoAsync(CreateTodoRequest request);
+        Task<PagedResult<Todo>> GetAllTodosAsync( int page,int pageSize);
+        Task<Todo?> GetTodoByIdAsync(int id);
+        Task<Todo?> UpdateTodoAsync(int id, UpdateTodoRequest request);
+        Task<bool> DeleteTodoAsync(int id);
     }
 }
