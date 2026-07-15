@@ -1,11 +1,11 @@
-﻿using TodoApi.Models
+﻿using TodoApi.Models;
 
 namespace TodoApi.Services
 {
     public interface ITodoService
     {
         Todo CreateTodo(CreateTodoRequest request);
-        List<TodoApi> GetAllTodos();
+        List<Todo> GetAllTodos();
         Todo? UpdateTodo(int id, UpdateTodoRequest request);
         bool DeleteTodo(int id);
     }
